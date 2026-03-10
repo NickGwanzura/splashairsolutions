@@ -1,0 +1,1136 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// Multi-Tenant SaaS Core
+// ============================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  address   String?
+  city      String?
+  state     String?
+  zipCode   String?
+  country   String   @default("US")
+  phone     String?
+  email     String?
+  website   String?
+  timezone  String   @default("America/New_York")
+  currency  String   @default("USD")
+  
+  // SaaS Subscription
+  subscriptionTier   SubscriptionTier @default(STARTER)
+  subscriptionStatus SubscriptionStatus @default(ACTIVE)
+  stripeCustomerId   String?
+  stripeSubscriptionId String?
+  currentPeriodEnd   DateTime?
+  
+  // Usage limits
+  maxUsers           Int @default(5)
+  maxTechnicians     Int @default(10)
+  maxJobsPerMonth    Int @default(100)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+  
+  // Relations
+  users        User[]
+  customers    Customer[]
+  technicians  Technician[]
+  jobs         Job[]
+  schedules    Schedule[]
+  invoices     Invoice[]
+  estimates    Estimate[]
+  equipment    Equipment[]
+  inventory    InventoryItem[]
+  auditLogs    AuditLog[]
+  notifications Notification[]
+  invitations  UserInvitation[]
+  
+  @@map("organizations")
+}
+
+enum SubscriptionTier {
+  STARTER
+  PROFESSIONAL
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+  TRIALING
+}
+
+// ============================================
+// User Management & Authentication
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?   // Hashed password
+  name          String?
+  avatar        String?
+  phone         String?
+  
+  // Role-based access
+  role          UserRole  @default(TECHNICIAN)
+  status        UserStatus @default(ACTIVE)
+  
+  // Multi-tenant
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // OAuth accounts
+  accounts      Account[]
+  sessions      Session[]
+  
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+  
+  // Relations
+  technicianProfile Technician?
+  assignedJobs      JobAssignment[]
+  auditLogs         AuditLog[]
+  createdCustomers  Customer[] @relation("CreatedBy")
+  createdJobs       Job[] @relation("CreatedBy")
+  createdInvoices   Invoice[] @relation("CreatedBy")
+  createdEstimates  Estimate[] @relation("CreatedBy")
+  notifications     NotificationUser[]
+  sentInvitations   UserInvitation[] @relation("InvitedBy")
+  
+  @@index([organizationId])
+  @@index([email])
+  @@map("users")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  DISPATCHER
+  TECHNICIAN
+  ACCOUNTANT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================
+// Technician Management
+// ============================================
+
+model Technician {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Profile
+  employeeId     String?
+  skills         String[] // Array of skill tags
+  certifications String[]
+  licenseNumber  String?
+  vehicleInfo    Json?    // { make, model, year, licensePlate }
+  
+  // Availability & Location
+  status         TechnicianStatus @default(OFFLINE)
+  currentLocation Json?   // { lat, lng, updatedAt }
+  workSchedule   Json?    // Weekly schedule
+  
+  // Performance
+  rating         Float   @default(5.0)
+  jobsCompleted  Int     @default(0)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  // Relations
+  jobAssignments JobAssignment[]
+  schedules      Schedule[]
+  
+  @@index([organizationId])
+  @@index([status])
+  @@map("technicians")
+}
+
+enum TechnicianStatus {
+  AVAILABLE
+  BUSY
+  OFFLINE
+  ON_BREAK
+}
+
+// ============================================
+// Customer CRM
+// ============================================
+
+model Customer {
+  id          String   @id @default(cuid())
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Profile
+  firstName   String
+  lastName    String
+  email       String?
+  phones      Json[]   // [{ number, type, isPrimary }]
+  
+  // Classification
+  type        CustomerType @default(RESIDENTIAL)
+  status      CustomerStatus @default(ACTIVE)
+  source      String?  // How they found us
+  
+  // Billing
+  paymentTerms String @default("NET_30")
+  taxExempt    Boolean @default(false)
+  taxId        String?
+  
+  // Notes
+  internalNotes String?
+  
+  // Timestamps
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdById  String
+  createdBy    User     @relation("CreatedBy", fields: [createdById], references: [id])
+  
+  // Relations
+  properties   Property[]
+  jobs         Job[]
+  invoices     Invoice[]
+  estimates    Estimate[]
+  equipment    Equipment[]
+  
+  @@index([organizationId])
+  @@index([email])
+  @@map("customers")
+}
+
+enum CustomerType {
+  RESIDENTIAL
+  COMMERCIAL
+  INDUSTRIAL
+  GOVERNMENT
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  LEAD
+  VIP
+}
+
+model Property {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  
+  // Address
+  name        String?  // "Home", "Office", etc.
+  address     String
+  city        String
+  state       String
+  zipCode     String
+  country     String   @default("US")
+  coordinates Json?    // { lat, lng }
+  
+  // Property details
+  propertyType PropertyType @default(SINGLE_FAMILY)
+  yearBuilt    Int?
+  squareFootage Int?
+  notes        String?
+  
+  // Access
+  gateCode     String?
+  keyLocation  String?
+  parkingNotes String?
+  
+  isPrimary    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  
+  // Relations
+  jobs         Job[]
+  equipment    Equipment[]
+  
+  @@index([customerId])
+  @@map("properties")
+}
+
+enum PropertyType {
+  SINGLE_FAMILY
+  MULTI_FAMILY
+  APARTMENT
+  CONDO
+  TOWNHOUSE
+  COMMERCIAL
+  INDUSTRIAL
+}
+
+// ============================================
+// Job Management
+// ============================================
+
+model Job {
+  id          String   @id @default(cuid())
+  jobNumber   String   @unique // Human-readable: JOB-2024-0001
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  
+  // Job details
+  type        JobType
+  priority    Priority @default(NORMAL)
+  status      JobStatus @default(NEW)
+  
+  // Description
+  title       String
+  description String?  @db.Text
+  instructions String? @db.Text // Internal notes
+  
+  // Scheduling
+  scheduledDate   DateTime?
+  scheduledTimeStart DateTime?
+  scheduledTimeEnd   DateTime?
+  estimatedDuration  Int?     // Minutes
+  
+  // Timing tracking
+  startedAt   DateTime?
+  completedAt DateTime?
+  
+  // Financial
+  estimatedCost Decimal? @db.Decimal(10, 2)
+  finalCost     Decimal? @db.Decimal(10, 2)
+  
+  // Source (from estimate, recurring, etc.)
+  sourceEstimateId String?
+  isRecurring      Boolean @default(false)
+  recurringSchedule Json?   // For maintenance contracts
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+  createdBy   User     @relation("CreatedBy", fields: [createdById], references: [id])
+  
+  // Relations
+  assignments    JobAssignment[]
+  statusHistory  JobStatusHistory[]
+  checklistItems JobChecklistItem[]
+  photos         JobPhoto[]
+  notes          JobNote[]
+  invoice        Invoice?
+  partsUsed      PartUsage[]
+  
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([status])
+  @@index([scheduledDate])
+  @@map("jobs")
+}
+
+enum JobType {
+  INSTALLATION
+  REPAIR
+  MAINTENANCE
+  INSPECTION
+  EMERGENCY
+  QUOTE
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum JobStatus {
+  NEW
+  SCHEDULED
+  ASSIGNED
+  EN_ROUTE
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  INVOICED
+  PAID
+  CANCELLED
+}
+
+model JobAssignment {
+  id           String   @id @default(cuid())
+  jobId        String
+  job          Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  technicianId String
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  assignedById String
+  assignedBy   User     @relation(fields: [assignedById], references: [id])
+  
+  assignedAt   DateTime @default(now())
+  isPrimary    Boolean  @default(false)
+  
+  @@unique([jobId, technicianId])
+  @@index([jobId])
+  @@index([technicianId])
+  @@map("job_assignments")
+}
+
+model JobStatusHistory {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  status      JobStatus
+  notes       String?
+  location    Json?    // GPS coordinates if mobile
+  createdAt   DateTime @default(now())
+  createdById String?
+  
+  @@index([jobId])
+  @@map("job_status_history")
+}
+
+model JobChecklistItem {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String?
+  isRequired  Boolean  @default(true)
+  isCompleted Boolean  @default(false)
+  completedAt DateTime?
+  photos      String[] // URLs to photos
+  notes       String?
+  
+  sortOrder   Int      @default(0)
+  
+  @@index([jobId])
+  @@map("job_checklist_items")
+}
+
+model JobPhoto {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  url         String
+  caption     String?
+  category    String?  // "before", "after", "issue", "equipment"
+  takenAt     DateTime @default(now())
+  takenById   String?
+  location    Json?    // GPS
+  
+  @@index([jobId])
+  @@map("job_photos")
+}
+
+model JobNote {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  
+  content     String   @db.Text
+  isInternal  Boolean  @default(false) // true = internal only
+  createdAt   DateTime @default(now())
+  createdById String
+  
+  @@index([jobId])
+  @@map("job_notes")
+}
+
+// ============================================
+// Scheduling
+// ============================================
+
+model Schedule {
+  id           String   @id @default(cuid())
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  technicianId String
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+  
+  // Schedule entry
+  title        String
+  type         ScheduleType @default(JOB)
+  
+  startTime    DateTime
+  endTime      DateTime
+  
+  // For job schedules
+  jobId        String?
+  
+  // For non-job events (breaks, time-off, etc.)
+  notes        String?
+  isAllDay     Boolean  @default(false)
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([organizationId])
+  @@index([technicianId])
+  @@index([startTime])
+  @@map("schedules")
+}
+
+enum ScheduleType {
+  JOB
+  BREAK
+  TIMEOFF
+  TRAINING
+  MEETING
+  BLOCKED
+}
+
+// ============================================
+// Equipment Tracking
+// ============================================
+
+model Equipment {
+  id          String   @id @default(cuid())
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  
+  // Equipment details
+  type        EquipmentType
+  make        String
+  model       String
+  serialNumber String   @unique
+  
+  // Location
+  location    String?  // "Attic", "Basement", "Roof", etc.
+  
+  // Dates
+  manufactureDate DateTime?
+  installationDate DateTime?
+  warrantyExpiry   DateTime?
+  
+  // Specifications
+  capacity     String?  // "3 Ton", "60,000 BTU"
+  voltage      String?
+  fuelType     String?
+  
+  // Maintenance
+  lastServiceDate  DateTime?
+  nextServiceDate  DateTime?
+  serviceInterval  Int?     // Days
+  
+  // Status
+  status       EquipmentStatus @default(ACTIVE)
+  condition    String?  // "Excellent", "Good", "Fair", "Poor"
+  notes        String?
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([serialNumber])
+  @@map("equipment")
+}
+
+enum EquipmentType {
+  AIR_CONDITIONER
+  FURNACE
+  HEAT_PUMP
+  BOILER
+  WATER_HEATER
+  THERMOSTAT
+  AIR_HANDLER
+  CONDENSER
+  EVAPORATOR_COIL
+  DUCTLESS_MINI_SPLIT
+  HUMIDIFIER
+  DEHUMIDIFIER
+  AIR_PURIFIER
+  VENTILATION
+  OTHER
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  INACTIVE
+  UNDER_WARRANTY
+  WARRANTY_EXPIRED
+  SCHEDULED_FOR_REPLACEMENT
+  DEcommissioned
+}
+
+// ============================================
+// Inventory Management
+// ============================================
+
+model InventoryItem {
+  id          String   @id @default(cuid())
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  // Item details
+  sku         String
+  name        String
+  description String?
+  category    String
+  
+  // Pricing
+  costPrice   Decimal  @db.Decimal(10, 2)
+  salePrice   Decimal  @db.Decimal(10, 2)
+  
+  // Stock
+  quantityOnHand  Int      @default(0)
+  quantityReserved Int     @default(0)
+  reorderPoint    Int      @default(10)
+  reorderQuantity Int      @default(50)
+  
+  // Location
+  binLocation     String?
+  
+  // Supplier
+  supplierId      String?
+  supplier        Supplier? @relation(fields: [supplierId], references: [id])
+  supplierSku     String?
+  
+  // Tracking
+  isActive        Boolean  @default(true)
+  trackSerialNumbers Boolean @default(false)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  partsUsed       PartUsage[]
+  
+  @@unique([organizationId, sku])
+  @@index([organizationId])
+  @@index([category])
+  @@map("inventory_items")
+}
+
+model Supplier {
+  id          String   @id @default(cuid())
+  name        String
+  contactName String?
+  email       String?
+  phone       String?
+  address     String?
+  city        String?
+  state       String?
+  zipCode     String?
+  
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  
+  inventoryItems InventoryItem[]
+  purchaseOrders PurchaseOrder[]
+  
+  @@map("suppliers")
+}
+
+model PartUsage {
+  id          String   @id @default(cuid())
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  inventoryItemId String
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  
+  quantity    Int
+  unitCost    Decimal  @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  
+  serialNumbers String[] // If tracking serial numbers
+  notes       String?
+  
+  usedAt      DateTime @default(now())
+  usedById    String?
+  
+  @@index([jobId])
+  @@map("part_usage")
+}
+
+model PurchaseOrder {
+  id          String   @id @default(cuid())
+  poNumber    String   @unique
+  
+  supplierId  String
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  
+  status      POStatus @default(DRAFT)
+  
+  // Totals
+  subtotal    Decimal  @db.Decimal(10, 2)
+  taxAmount   Decimal  @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(10, 2)
+  
+  // Dates
+  orderDate   DateTime @default(now())
+  expectedDate DateTime?
+  receivedDate DateTime?
+  
+  notes       String?
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("purchase_orders")
+}
+
+enum POStatus {
+  DRAFT
+  SENT
+  ACKNOWLEDGED
+  PARTIAL
+  RECEIVED
+  CANCELLED
+}
+
+// ============================================
+// Estimates & Quotes
+// ============================================
+
+model Estimate {
+  id          String   @id @default(cuid())
+  estimateNumber String @unique
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  propertyId  String?
+  
+  // Status workflow
+  status      EstimateStatus @default(DRAFT)
+  
+  // Validity
+  issueDate   DateTime @default(now())
+  expiryDate  DateTime?
+  
+  // Content
+  title       String
+  description String?  @db.Text
+  lineItems   EstimateLineItem[]
+  
+  // Pricing
+  subtotal    Decimal  @db.Decimal(10, 2)
+  discountAmount Decimal @default(0) @db.Decimal(10, 2)
+  discountPercent Decimal @default(0) @db.Decimal(5, 2)
+  taxRate     Decimal  @default(0) @db.Decimal(5, 2)
+  taxAmount   Decimal  @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(10, 2)
+  
+  // Conversion
+  convertedToJobId String? @unique
+  
+  // Authorization
+  customerSignature Json?  // { signedAt, signatureData, ipAddress }
+  approvedAt  DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+  createdBy   User     @relation("CreatedBy", fields: [createdById], references: [id])
+  
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([status])
+  @@map("estimates")
+}
+
+enum EstimateStatus {
+  DRAFT
+  SENT
+  VIEWED
+  APPROVED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+model EstimateLineItem {
+  id          String   @id @default(cuid())
+  estimateId  String
+  estimate    Estimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  
+  type        LineItemType @default(LABOR)
+  description String
+  quantity    Decimal  @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(10, 2)
+  
+  sortOrder   Int      @default(0)
+  
+  @@index([estimateId])
+  @@map("estimate_line_items")
+}
+
+// ============================================
+// Invoicing & Payments
+// ============================================
+
+model Invoice {
+  id          String   @id @default(cuid())
+  invoiceNumber String @unique
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  jobId       String?  @unique
+  job         Job?     @relation(fields: [jobId], references: [id])
+  
+  // Status
+  status      InvoiceStatus @default(DRAFT)
+  
+  // Dates
+  issueDate   DateTime @default(now())
+  dueDate     DateTime
+  paidAt      DateTime?
+  sentAt      DateTime?
+  
+  // Line items
+  lineItems   InvoiceLineItem[]
+  
+  // Pricing
+  subtotal    Decimal  @db.Decimal(10, 2)
+  discountAmount Decimal @default(0) @db.Decimal(10, 2)
+  taxRate     Decimal  @default(0) @db.Decimal(5, 2)
+  taxAmount   Decimal  @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(10, 2)
+  amountPaid  Decimal  @default(0) @db.Decimal(10, 2)
+  balanceDue  Decimal  @db.Decimal(10, 2)
+  
+  // Payment
+  stripeInvoiceId String?
+  paymentIntentId String?
+  
+  // Notes
+  customerNotes String?
+  internalNotes String?
+  terms         String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+  createdBy   User     @relation("CreatedBy", fields: [createdById], references: [id])
+  
+  // Relations
+  payments    Payment[]
+  
+  @@index([organizationId])
+  @@index([customerId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+model InvoiceLineItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  type        LineItemType @default(LABOR)
+  description String
+  quantity    Decimal  @db.Decimal(10, 2)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  total       Decimal  @db.Decimal(10, 2)
+  
+  // Source (from job parts, labor, etc.)
+  sourcePartUsageId String?
+  
+  sortOrder   Int      @default(0)
+  
+  @@index([invoiceId])
+  @@map("invoice_line_items")
+}
+
+enum LineItemType {
+  LABOR
+  PARTS
+  EQUIPMENT
+  MATERIALS
+  SERVICE_FEE
+  DIAGNOSTIC
+  WARRANTY
+  DISCOUNT
+  TAX
+  OTHER
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  amount      Decimal  @db.Decimal(10, 2)
+  method      PaymentMethod
+  status      PaymentStatus @default(COMPLETED)
+  
+  // Payment details
+  reference   String?  // Check number, transaction ID
+  stripePaymentIntentId String?
+  
+  // Metadata
+  notes       String?
+  processedAt DateTime @default(now())
+  processedBy String?
+  
+  @@index([invoiceId])
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  CHECK
+  CREDIT_CARD
+  DEBIT_CARD
+  ACH
+  ONLINE
+  OTHER
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  VOIDED
+}
+
+// ============================================
+// Notifications System
+// ============================================
+
+model Notification {
+  id          String   @id @default(cuid())
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  type        NotificationType
+  title       String
+  message     String
+  
+  // Related entity
+  entityType  String?  // "job", "invoice", "customer"
+  entityId    String?
+  
+  // Delivery
+  channels    NotificationChannel[]
+  
+  // Scheduled notifications
+  scheduledFor DateTime?
+  sentAt      DateTime?
+  
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  recipients  NotificationUser[]
+  
+  @@index([organizationId])
+  @@index([entityType, entityId])
+  @@map("notifications")
+}
+
+model NotificationUser {
+  id              String   @id @default(cuid())
+  notificationId  String
+  notification    Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  isRead          Boolean  @default(false)
+  readAt          DateTime?
+  
+  @@unique([notificationId, userId])
+  @@index([userId])
+  @@map("notification_users")
+}
+
+enum NotificationType {
+  JOB_ASSIGNED
+  JOB_STATUS_CHANGE
+  SCHEDULE_CHANGE
+  INVOICE_CREATED
+  INVOICE_PAID
+  PAYMENT_RECEIVED
+  ESTIMATE_APPROVED
+  ESTIMATE_REJECTED
+  CUSTOMER_MESSAGE
+  INVENTORY_LOW
+  SYSTEM
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  PUSH
+}
+
+// ============================================
+// Audit Logging
+// ============================================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  action      AuditAction
+  entityType  String   // "customer", "job", "invoice", etc.
+  entityId    String?
+  
+  // Change details
+  oldValues   Json?
+  newValues   Json?
+  
+  // Request metadata
+  ipAddress   String?
+  userAgent   String?
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([organizationId])
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  VIEW
+  LOGIN
+  LOGOUT
+  EXPORT
+  IMPORT
+  SEND
+  APPROVE
+  REJECT
+  ASSIGN
+  COMPLETE
+  CANCEL
+}
+
+// ============================================
+// User Invitations
+// ============================================
+
+model UserInvitation {
+  id              String   @id @default(cuid())
+  email           String
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  role            UserRole
+  token           String   @unique
+  invitedById     String
+  invitedBy       User     @relation("InvitedBy", fields: [invitedById], references: [id])
+  status          InvitationStatus @default(PENDING)
+  expiresAt       DateTime
+  acceptedAt      DateTime?
+  createdAt       DateTime @default(now())
+  
+  @@index([organizationId])
+  @@index([token])
+  @@index([email])
+  @@map("user_invitations")
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}

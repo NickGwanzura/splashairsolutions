@@ -1,0 +1,24 @@
+# Files to ignore when deploying to Vercel
+
+# Development
+.env.local
+.env.development
+.vscode/
+.idea/
+
+# Testing
+coverage/
+*.test.ts
+*.test.tsx
+
+# Documentation (keep DEPLOY.md)
+README.md
+ARCHITECTURE.md
+BLUEPRINT.md
+
+# Local scripts
+scripts/setup-local.sh
+
+# Misc
+*.log
+.DS_Store
