@@ -1,162 +1,231 @@
 # HVACOps - Vercel Deployment Guide
 
-## Prerequisites
+## Quick Deploy (5 minutes)
 
-- [Vercel Account](https://vercel.com/signup)
-- [PostgreSQL Database](https://neon.tech) (Neon recommended)
-- [Resend Account](https://resend.com) (for emails)
-- [Stripe Account](https://stripe.com) (for payments)
+### Step 1: Connect GitHub Repo to Vercel
 
-## Step 1: Environment Variables
+1. Go to [vercel.com](https://vercel.com) and login
+2. Click "Add New Project"
+3. Import your GitHub repo: `splashairservice`
+4. Click "Deploy" (it will fail initially - that's ok!)
 
-Set these in Vercel Dashboard → Project Settings → Environment Variables:
+### Step 2: Set Environment Variables
 
-### Required
-```
-DATABASE_URL="postgresql://user:pass@host/db?sslmode=require"
-NEXTAUTH_URL="https://your-domain.vercel.app"
-NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
-```
+In Vercel Dashboard → Your Project → Settings → Environment Variables:
 
-### Email (Resend)
-```
-RESEND_API_KEY="re_xxxxxxxx"
-```
+#### Required Variables
 
-### Payments (Stripe)
-```
-STRIPE_SECRET_KEY="sk_live_..."
-STRIPE_PUBLISHABLE_KEY="pk_live_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."
-```
+| Name | Value | Environment |
+|------|-------|-------------|
+| `DATABASE_URL` | Your Neon PostgreSQL URL | Production |
+| `NEXTAUTH_SECRET` | Generate with `openssl rand -base64 32` | Production |
+| `NEXTAUTH_URL` | Your Vercel URL (e.g., `https://splashairservice.vercel.app`) | Production |
 
-### Optional
-```
-NEXT_PUBLIC_MAPBOX_TOKEN="pk.eyJ1..."
-AWS_ACCESS_KEY_ID="..."
-AWS_SECRET_ACCESS_KEY="..."
-AWS_REGION="us-east-1"
-AWS_S3_BUCKET="hvacops-uploads"
-```
+#### Optional Variables
 
-## Step 2: Generate Secrets
+| Name | Value | Environment |
+|------|-------|-------------|
+| `RESEND_API_KEY` | Your Resend API key | Production |
+| `STRIPE_SECRET_KEY` | `sk_live_...` | Production |
+| `STRIPE_PUBLISHABLE_KEY` | `pk_live_...` | Production |
+| `NEXT_PUBLIC_MAPBOX_TOKEN` | Your Mapbox token | Production |
+
+### Step 3: Generate Secrets
+
+Run this locally to generate `NEXTAUTH_SECRET`:
 
 ```bash
-# Generate NEXTAUTH_SECRET
 openssl rand -base64 32
-
-# Or use Node
-node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
-## Step 3: Database Setup
+Copy the output and paste it into Vercel environment variables.
 
-1. Create PostgreSQL database (Neon recommended)
-2. Run migrations:
+### Step 4: Redeploy
+
+After setting environment variables:
+
+1. Go to Deployments tab
+2. Click the 3 dots on latest deployment
+3. Click "Redeploy"
+
+Or push a new commit:
+
 ```bash
+git commit --allow-empty -m "Trigger redeploy"
+git push
+```
+
+### Step 5: Database Setup
+
+Once deployed, run migrations:
+
+**Option A: Vercel CLI**
+```bash
+npm i -g vercel
+vercel login
+vercel env pull .env.production
+export $(cat .env.production | xargs)
 npx prisma migrate deploy
-```
-
-3. Seed initial data:
-```bash
 npx prisma db seed
 ```
 
-## Step 4: Deploy to Vercel
-
-### Option A: Git Integration (Recommended)
-
-1. Push code to GitHub
-2. Import project in Vercel Dashboard
-3. Set environment variables
-4. Deploy
-
-### Option B: Vercel CLI
-
+**Option B: Local with Production DB**
 ```bash
-# Install CLI
-npm i -g vercel
+# Copy production DATABASE_URL from Vercel
+echo "DATABASE_URL=your_production_url" > .env.production.local
 
-# Login
-vercel login
+# Deploy migrations
+DOTENV_CONFIG_PATH=.env.production.local npx prisma migrate deploy
 
-# Deploy
-vercel --prod
+# Seed data
+DOTENV_CONFIG_PATH=.env.production.local npx prisma db seed
 ```
 
-## Step 5: Post-Deployment
+---
 
-1. **Configure Custom Domain** (optional):
-   - Vercel Dashboard → Domains
-   - Add your domain
-   - Update DNS records
+## Environment Variable Reference
 
-2. **Verify Database Connection**:
-   - Check Vercel Functions logs
-   - Test login flow
+### Authentication (Required)
 
-3. **Configure Email Domain**:
-   - Add domain to Resend
-   - Verify DNS records
-   - Update FROM_EMAIL in code
+```
+NEXTAUTH_URL=https://your-domain.vercel.app
+NEXTAUTH_SECRET=your-generated-secret
+```
 
-4. **Stripe Webhook**:
-   - Add webhook endpoint: `https://your-domain.vercel.app/api/webhooks/stripe`
-   - Select events: `invoice.payment_succeeded`, `invoice.payment_failed`
+**Get NEXTAUTH_SECRET:**
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+### Database (Required)
+
+**Neon PostgreSQL (Recommended):**
+1. Go to [neon.tech](https://neon.tech)
+2. Create project
+3. Copy connection string
+4. Format: `postgresql://user:pass@host/db?sslmode=require`
+
+### Email (Optional)
+
+**Resend:**
+1. Sign up at [resend.com](https://resend.com)
+2. Verify your domain
+3. Copy API key
+
+```
+RESEND_API_KEY=re_xxxxxxxx
+EMAIL_FROM=HVACOps <noreply@yourdomain.com>
+```
+
+### Payments (Optional)
+
+**Stripe:**
+```
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+```
+
+### Maps (Optional)
+
+**Mapbox:**
+```
+NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...
+```
+
+---
 
 ## Troubleshooting
 
-### Build Failures
-```bash
-# Check local build
-npm run build
+### "Secret does not exist" Error
 
-# Clear cache and retry
-vercel --force
+**Cause:** Old `vercel.json` referenced secrets incorrectly.
+
+**Fix:** 
+1. Delete the project in Vercel
+2. Re-import from GitHub
+3. Set environment variables BEFORE first deploy
+
+### Build Fails
+
+Check build logs in Vercel Dashboard:
+1. Go to Deployments
+2. Click failed deployment
+3. View Build Logs
+
+Common issues:
+- Missing `DATABASE_URL` → Add env var
+- Missing `NEXTAUTH_SECRET` → Generate and add
+- Prisma generate failed → Check `postinstall` script
+
+### Database Connection Failed
+
+1. Check `DATABASE_URL` format
+2. Ensure SSL mode: `?sslmode=require`
+3. Whitelist Vercel IPs in Neon: `0.0.0.0/0`
+
+### 404 on Dynamic Routes
+
+Add to `vercel.json`:
+```json
+{
+  "routes": [
+    { "src": "/(.*)", "dest": "/" }
+  ]
+}
 ```
 
-### Database Connection Issues
-- Verify `DATABASE_URL` format
-- Ensure SSL mode is enabled for serverless
-- Check IP allowlist (Neon: 0.0.0.0/0 for Vercel)
+---
 
-### Email Not Sending
-- Verify Resend API key
-- Check domain verification status
-- Review Resend dashboard for blocked emails
+## Custom Domain (Optional)
 
-### Authentication Issues
-- Ensure `NEXTAUTH_URL` matches deployment URL
-- Check `NEXTAUTH_SECRET` is set
-- Verify callback URLs in OAuth providers
+1. Vercel Dashboard → Domains
+2. Add your domain
+3. Update DNS records as instructed
+4. Update `NEXTAUTH_URL` to custom domain
+5. Redeploy
+
+---
 
 ## Monitoring
 
-- **Vercel Analytics**: Dashboard → Analytics
-- **Error Tracking**: Integrate Sentry
+### Health Check
 ```bash
-npm install @sentry/nextjs
+curl https://your-domain.vercel.app/api/health
 ```
 
-## Production Checklist
+Should return:
+```json
+{"database":true,"timestamp":"...","version":"1.0.0"}
+```
 
-- [ ] Custom domain configured
-- [ ] SSL certificate active
-- [ ] Database backups enabled
-- [ ] Stripe webhooks configured
-- [ ] Email domain verified
-- [ ] Environment variables set
-- [ ] Error monitoring active
-- [ ] Privacy policy page
-- [ ] Terms of service page
+### Logs
+- Vercel Dashboard → Functions → Logs
+- Filter by function or error level
+
+---
 
 ## Support
 
 For issues:
-1. Check Vercel Functions logs
-2. Review Database connection logs
-3. Open issue on GitHub
+1. Check [Vercel Status](https://www.vercel-status.com/)
+2. Review [Next.js Deployment Docs](https://nextjs.org/docs/deployment)
+3. Check Prisma connection pooling guide
 
 ---
 
-**Deploy URL**: https://vercel.com/new?template=your-template-url
+## Production Checklist
+
+- [ ] Database URL set
+- [ ] NEXTAUTH_SECRET generated
+- [ ] NEXTAUTH_URL matches domain
+- [ ] Database migrated
+- [ ] Initial data seeded
+- [ ] Email service configured (optional)
+- [ ] Stripe webhooks configured (optional)
+- [ ] Custom domain configured (optional)
+- [ ] Team members invited
+
+---
+
+**Deploy URL:** https://vercel.com/new/clone?repository-url=https://github.com/NickGwanzura/splashairservice
