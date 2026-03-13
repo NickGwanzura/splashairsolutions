@@ -1,19 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import bcrypt from "bcryptjs";
+import { z } from "zod";
+
+const acceptInviteSchema = z.object({
+  token: z.string().min(1),
+  name: z.string().trim().min(2).max(100),
+  password: z.string().min(6).max(128),
+});
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, name, password } = await request.json();
+    const body = await request.json();
+    const validated = acceptInviteSchema.safeParse(body);
 
-    if (!token || !name || !password) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+    if (!validated.success) {
+      return NextResponse.json(
+        { error: "Please provide a valid name and a password with at least 6 characters" },
+        { status: 400 }
+      );
     }
+
+    const { token, name, password } = validated.data;
 
     const invitation = await prisma.userInvitation.findUnique({ where: { token } });
 
     if (!invitation || invitation.status !== "PENDING" || invitation.expiresAt < new Date()) {
       return NextResponse.json({ error: "Invalid or expired invitation" }, { status: 400 });
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: invitation.email },
+      select: { id: true },
+    });
+
+    if (existingUser) {
+      return NextResponse.json({ error: "An account for this email already exists" }, { status: 409 });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);

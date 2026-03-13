@@ -4,6 +4,10 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
 
+function getAppUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || null;
+}
+
 interface InvitationEmailProps {
   to: string;
   organizationName: string;
@@ -18,11 +22,16 @@ export async function sendInvitationEmail({
   invitedBy,
 }: InvitationEmailProps) {
   if (!resend) {
-    console.warn("Resend not configured. Email would have been sent to:", to);
-    return { success: true, mock: true };
+    throw new Error("Invitation email delivery is not configured");
   }
 
-  const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${inviteToken}`;
+  const appUrl = getAppUrl();
+
+  if (!appUrl) {
+    throw new Error("Application URL is not configured");
+  }
+
+  const inviteUrl = `${appUrl}/invite/${inviteToken}`;
 
   try {
     const result = await resend.emails.send({
@@ -74,8 +83,7 @@ export async function sendInvoiceEmail({
   invoiceUrl,
 }: InvoiceEmailProps) {
   if (!resend) {
-    console.warn("Resend not configured. Invoice email would have been sent to:", to);
-    return { success: true, mock: true };
+    throw new Error("Invoice email delivery is not configured");
   }
 
   try {

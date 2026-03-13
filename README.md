@@ -71,7 +71,7 @@ cp .env.example .env
 4. Initialize the database:
 ```bash
 npx prisma migrate dev
-npx prisma db seed
+ALLOW_DESTRUCTIVE_SEED=true npx prisma db seed
 ```
 
 5. Start the development server:
@@ -177,8 +177,11 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed architecture documentation
 
 1. Push your code to GitHub
 2. Connect repository to [Vercel](https://vercel.com)
-3. Add environment variables in Vercel dashboard
-4. Deploy
+3. Add environment variables from `.env.example` in the Vercel dashboard
+4. Run `npm run vercel:check` with those values locally
+5. Deploy
+
+Full instructions live in [DEPLOY.md](./DEPLOY.md).
 
 ### Self-Hosted
 
@@ -201,6 +204,7 @@ DATABASE_URL="postgresql://username:password@localhost:5432/hvacops"
 # Auth
 NEXTAUTH_SECRET="your-secret-key"
 NEXTAUTH_URL="http://localhost:3000"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 # Stripe
 STRIPE_PUBLISHABLE_KEY="pk_test_..."
@@ -208,12 +212,11 @@ STRIPE_SECRET_KEY="sk_test_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 
 # Mapbox
-NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN="pk.eyJ1..."
+NEXT_PUBLIC_MAPBOX_TOKEN="pk.eyJ1..."
 
-# AWS S3
-AWS_ACCESS_KEY_ID="..."
-AWS_SECRET_ACCESS_KEY="..."
-AWS_S3_BUCKET="hvacops-uploads"
+# Demo
+NEXT_PUBLIC_ENABLE_PUBLIC_DEMO="false"
+DEMO_SESSION_SECRET="your-demo-secret"
 ```
 
 ## Contributing

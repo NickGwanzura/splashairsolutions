@@ -20,6 +20,7 @@ In Vercel Dashboard → Your Project → Settings → Environment Variables:
 | `DATABASE_URL` | Your Neon PostgreSQL URL | Production |
 | `NEXTAUTH_SECRET` | Generate with `openssl rand -base64 32` | Production |
 | `NEXTAUTH_URL` | Your Vercel URL (e.g., `https://splashairservice.vercel.app`) | Production |
+| `NEXT_PUBLIC_APP_URL` | Same public app URL used in invite emails | Production |
 
 #### Optional Variables
 
@@ -29,6 +30,7 @@ In Vercel Dashboard → Your Project → Settings → Environment Variables:
 | `STRIPE_SECRET_KEY` | `sk_live_...` | Production |
 | `STRIPE_PUBLISHABLE_KEY` | `pk_live_...` | Production |
 | `NEXT_PUBLIC_MAPBOX_TOKEN` | Your Mapbox token | Production |
+| `NEXT_PUBLIC_ENABLE_PUBLIC_DEMO` | `true` only if you intentionally want public demo access | Optional |
 
 ### Step 3: Generate Secrets
 
@@ -39,6 +41,14 @@ openssl rand -base64 32
 ```
 
 Copy the output and paste it into Vercel environment variables.
+
+### Step 3.5: Validate Before Deploy
+
+Run this locally with your production values pulled from Vercel:
+
+```bash
+npm run vercel:check
+```
 
 ### Step 4: Redeploy
 
@@ -66,7 +76,6 @@ vercel login
 vercel env pull .env.production
 export $(cat .env.production | xargs)
 npx prisma migrate deploy
-npx prisma db seed
 ```
 
 **Option B: Local with Production DB**
@@ -77,9 +86,9 @@ echo "DATABASE_URL=your_production_url" > .env.production.local
 # Deploy migrations
 DOTENV_CONFIG_PATH=.env.production.local npx prisma migrate deploy
 
-# Seed data
-DOTENV_CONFIG_PATH=.env.production.local npx prisma db seed
 ```
+
+Do not run `npx prisma db seed` against production. The checked-in seed script is destructive and is intended only for local demo data.
 
 ---
 

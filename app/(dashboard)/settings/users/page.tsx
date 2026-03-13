@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, MoreHorizontal, Mail, UserCheck, UserX } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -120,8 +120,39 @@ export default function UsersPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<UserRole>("TECHNICIAN");
   const [isInviting, setIsInviting] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch("/api/demo/session")
+      .then((response) => response.json())
+      .then((data) => {
+        if (!cancelled) {
+          setIsDemoMode(Boolean(data.active));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIsDemoMode(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const showDemoToast = () => {
+    toast.info("Demo mode is read-only. Sign in to manage team members.");
+  };
 
   const handleInvite = async () => {
+    if (isDemoMode) {
+      showDemoToast();
+      return;
+    }
+
     if (!inviteEmail) {
       toast.error("Please enter an email address");
       return;
@@ -152,6 +183,11 @@ export default function UsersPage() {
   };
 
   const handleDeactivate = async (userId: string) => {
+    if (isDemoMode) {
+      showDemoToast();
+      return;
+    }
+
     try {
       const response = await fetch(`/api/users/${userId}`, {
         method: "PATCH",
@@ -171,6 +207,11 @@ export default function UsersPage() {
   };
 
   const handleRoleChange = async (userId: string, newRole: UserRole) => {
+    if (isDemoMode) {
+      showDemoToast();
+      return;
+    }
+
     try {
       const response = await fetch(`/api/users/${userId}`, {
         method: "PATCH",
@@ -190,6 +231,11 @@ export default function UsersPage() {
   };
 
   const handleDelete = async (userId: string) => {
+    if (isDemoMode) {
+      showDemoToast();
+      return;
+    }
+
     if (!confirm("Are you sure? This action cannot be undone.")) {
       return;
     }
@@ -275,6 +321,11 @@ export default function UsersPage() {
       <Card>
         <CardHeader>
           <CardTitle>Team Members ({users.length})</CardTitle>
+          {isDemoMode && (
+            <p className="text-sm text-muted-foreground">
+              Demo mode keeps team management read-only.
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <div className="space-y-4">

@@ -6,6 +6,14 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("Starting database seed...");
 
+  if (process.env.NODE_ENV === "production" || process.env.APP_ENV === "production") {
+    throw new Error("Refusing to run destructive seed in a production environment");
+  }
+
+  if (process.env.ALLOW_DESTRUCTIVE_SEED !== "true") {
+    throw new Error("Set ALLOW_DESTRUCTIVE_SEED=true to run the local demo seed");
+  }
+
   // Clean existing data
   await prisma.$transaction([
     prisma.notificationUser.deleteMany(),

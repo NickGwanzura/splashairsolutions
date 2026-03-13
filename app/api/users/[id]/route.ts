@@ -6,7 +6,7 @@ import { UserRole, UserStatus } from "@prisma/client";
 // PATCH /api/users/[id] - Update user
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -21,10 +21,11 @@ export async function PATCH(
 
     const body = await request.json();
     const { role, status } = body;
+    const { id } = await params;
 
     const existingUser = await prisma.user.findFirst({
       where: {
-        id: params.id,
+        id: id,
         organizationId: session.user.organizationId,
       },
     });
@@ -45,7 +46,7 @@ export async function PATCH(
     if (status) updateData.status = status as UserStatus;
 
     const updatedUser = await prisma.user.update({
-      where: { id: params.id },
+      where: { id: id },
       data: updateData,
       select: {
         id: true,
@@ -62,7 +63,7 @@ export async function PATCH(
         userId: session.user.id,
         action: "UPDATE",
         entityType: "user",
-        entityId: params.id,
+        entityId: id,
         newValues: updateData,
       },
     });
@@ -80,7 +81,7 @@ export async function PATCH(
 // DELETE /api/users/[id] - Hard delete user (Owner only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -94,9 +95,11 @@ export async function DELETE(
       return NextResponse.json({ error: "Forbidden - Owner only" }, { status: 403 });
     }
 
+    const { id } = await params;
+
     const existingUser = await prisma.user.findFirst({
       where: {
-        id: params.id,
+        id: id,
         organizationId: session.user.organizationId,
       },
     });
@@ -114,7 +117,7 @@ export async function DELETE(
 
     // Hard delete the user
     await prisma.user.delete({
-      where: { id: params.id },
+      where: { id: id },
     });
 
     await prisma.auditLog.create({
@@ -123,7 +126,7 @@ export async function DELETE(
         userId: session.user.id,
         action: "DELETE",
         entityType: "user",
-        entityId: params.id,
+        entityId: id,
         oldValues: { email: existingUser.email, role: existingUser.role },
       },
     });

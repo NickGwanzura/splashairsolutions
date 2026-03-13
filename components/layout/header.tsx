@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Bell, Search, Menu, Plus, User as UserIcon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -24,9 +25,10 @@ import type { User } from "@/types";
 interface HeaderProps {
   user: User;
   notificationCount?: number;
+  isDemo?: boolean;
 }
 
-export function Header({ user, notificationCount = 0 }: HeaderProps) {
+export function Header({ user, notificationCount = 0, isDemo = false }: HeaderProps) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,6 +41,13 @@ export function Header({ user, notificationCount = 0 }: HeaderProps) {
   };
 
   const handleSignOut = async () => {
+    if (isDemo) {
+      await fetch("/api/demo/session", { method: "DELETE" });
+      router.push("/login");
+      router.refresh();
+      return;
+    }
+
     await signOut({ callbackUrl: "/login" });
   };
 
@@ -79,6 +88,12 @@ export function Header({ user, notificationCount = 0 }: HeaderProps) {
       </form>
 
       <div className="flex items-center gap-2 ml-auto">
+        {isDemo && (
+          <Badge variant="outline" className="hidden border-amber-300 bg-amber-100 text-amber-900 sm:inline-flex">
+            Demo
+          </Badge>
+        )}
+
         {/* Quick Actions */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -129,17 +144,22 @@ export function Header({ user, notificationCount = 0 }: HeaderProps) {
                 <p className="text-xs leading-none text-muted-foreground capitalize">
                   {user.role.toLowerCase().replace("_", " ")}
                 </p>
+                {isDemo && (
+                  <p className="text-xs leading-none text-amber-700">
+                    Read-only demo workspace
+                  </p>
+                )}
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/settings/profile">
+              <Link href="/settings">
                 <UserIcon className="mr-2 h-4 w-4" />
-                Profile
+                Settings
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/settings">Settings</Link>
+              <Link href="/settings/users">Team</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
