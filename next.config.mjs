@@ -31,9 +31,6 @@ const nextConfig = {
     formats: ['image/webp', 'image/avif'],
   },
   
-  // External packages for server components
-  serverExternalPackages: ["@react-pdf/renderer"],
-  
   // Headers for security
   async headers() {
     return [
@@ -61,7 +58,7 @@ const nextConfig = {
     ];
   },
   
-  // Webpack config for PDF generation
+  // Webpack config for PDF generation and aliases
   webpack: (config, { isServer }) => {
     if (isServer) {
       config.resolve.alias = {
@@ -69,6 +66,8 @@ const nextConfig = {
         "canvas": false,
       };
     }
+    // External packages that should not be bundled
+    config.externals = [...(config.externals || []), '@react-pdf/renderer'];
     return config;
   },
 };

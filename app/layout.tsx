@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Theme } from "@carbon/react";
 import "@carbon/styles/css/styles.css";
-import "@ibm/plex/css/ibm-plex-sans/index.css";
-import "@ibm/plex/css/ibm-plex-mono/index.css";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -19,6 +17,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <link
+          rel="stylesheet"
+          href="https://1.www.s81c.com/common/carbon/plex/sans.css"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="stylesheet"
+          href="https://1.www.s81c.com/common/carbon/plex/mono.css"
+          crossOrigin="anonymous"
+        />
         <style>{`
           :root {
             --font-plex-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
