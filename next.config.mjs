@@ -3,6 +3,9 @@ const nextConfig = {
   // Turbopack configuration (required for Next.js 16+)
   turbopack: {},
   
+  // Standalone output for Docker deployment
+  output: 'standalone',
+  
   // Vercel optimization
   poweredByHeader: false,
   compress: true,

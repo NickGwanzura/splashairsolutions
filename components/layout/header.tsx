@@ -2,12 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Search as CarbonSearch, Tag } from "@carbon/react";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { Bell, Search, Menu, Plus, User as UserIcon, LogOut } from "lucide-react";
+import { Bell, Menu, Plus, User as UserIcon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -52,122 +51,133 @@ export function Header({ user, notificationCount = 0, isDemo = false }: HeaderPr
   };
 
   const quickActions = [
-    { label: "New Job", href: "/jobs/new", shortcut: "⌘J" },
-    { label: "New Customer", href: "/customers/new", shortcut: "⌘C" },
-    { label: "New Estimate", href: "/estimates/new", shortcut: "⌘E" },
-    { label: "New Invoice", href: "/invoices/new", shortcut: "⌘I" },
+    { label: "New Job", href: "/jobs/new", shortcut: "J" },
+    { label: "New Customer", href: "/customers/new", shortcut: "C" },
+    { label: "New Estimate", href: "/estimates/new", shortcut: "E" },
+    { label: "New Invoice", href: "/invoices/new", shortcut: "I" },
   ];
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-4 sm:px-6">
-      {/* Mobile Menu */}
-      <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetTrigger asChild className="lg:hidden">
-          <Button variant="ghost" size="icon">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle menu</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="p-0 w-64">
-          <Sidebar />
-        </SheetContent>
-      </Sheet>
+    <header className="sticky top-0 z-30 border-b border-[#393939] bg-[#161616] text-[#f4f4f4]">
+      <div className="flex min-h-12 items-center gap-3 px-4 sm:px-6 lg:px-8">
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetTrigger asChild className="lg:hidden">
+            <button
+              type="button"
+              className="flex h-10 w-10 items-center justify-center text-[#c6c6c6] transition-colors hover:bg-[#262626] hover:text-white"
+            >
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle menu</span>
+            </button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-64 border-r border-[#393939] bg-[#161616] p-0 text-[#f4f4f4]">
+            <Sidebar role={user.role} />
+          </SheetContent>
+        </Sheet>
 
-      {/* Search */}
-      <form onSubmit={handleSearch} className="flex-1 max-w-md hidden sm:block">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search jobs, customers..."
-            className="pl-9"
+        <form onSubmit={handleSearch} className="hidden max-w-xl flex-1 sm:block">
+          <CarbonSearch
+            id="global-search"
+            size="lg"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            labelText="Search jobs, customers, and invoices"
+            placeholder="Search jobs, customers, and invoices"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            onClear={() => setSearchQuery("")}
+            className="carbon-header-search"
           />
-        </div>
-      </form>
+        </form>
 
-      <div className="flex items-center gap-2 ml-auto">
-        {isDemo && (
-          <Badge variant="outline" className="hidden border-amber-300 bg-amber-100 text-amber-900 sm:inline-flex">
-            Demo
-          </Badge>
-        )}
+        <div className="ml-auto flex items-center gap-2">
+          {isDemo && (
+            <Tag type="cool-gray" size="sm" className="hidden sm:inline-flex">
+              Demo workspace
+            </Tag>
+          )}
 
-        {/* Quick Actions */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="hidden sm:flex gap-2">
-              <Plus className="h-4 w-4" />
-              Quick Add
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            {quickActions.map((action) => (
-              <DropdownMenuItem key={action.label} asChild>
-                <Link href={action.href} className="flex justify-between">
-                  <span>{action.label}</span>
-                  <span className="text-xs text-muted-foreground">{action.shortcut}</span>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden gap-2 border-[#6f6f6f] bg-transparent text-[#f4f4f4] hover:bg-[#262626] hover:text-white sm:flex"
+              >
+                <Plus className="h-4 w-4" />
+                Quick add
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56 border-border bg-card">
+              {quickActions.map((action) => (
+                <DropdownMenuItem key={action.label} asChild>
+                  <Link href={action.href} className="flex justify-between">
+                    <span>{action.label}</span>
+                    <span className="font-mono text-xs text-muted-foreground">{action.shortcut}</span>
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <button
+            type="button"
+            className="relative flex h-10 w-10 items-center justify-center text-[#c6c6c6] transition-colors hover:bg-[#262626] hover:text-white"
+            aria-label="Notifications"
+          >
+            <Bell className="h-5 w-5" />
+            {notificationCount > 0 && (
+              <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#da1e28] px-1 text-[10px] font-semibold text-white">
+                {notificationCount > 9 ? "9+" : notificationCount}
+              </span>
+            )}
+          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="flex h-10 w-10 items-center justify-center rounded-full text-[#f4f4f4] transition-colors hover:bg-[#262626]"
+              >
+                <Avatar className="h-9 w-9 border border-[#393939]">
+                  <AvatarImage src={user.avatar || undefined} alt={user.name || ""} />
+                  <AvatarFallback className="bg-[#0f62fe] text-white">
+                    {getInitials(user.name)}
+                  </AvatarFallback>
+                </Avatar>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-64 border-border bg-card" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col gap-1">
+                  <p className="text-sm font-semibold leading-none">{user.name}</p>
+                  <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                  <p className="text-xs leading-none uppercase tracking-[0.18em] text-muted-foreground">
+                    {user.role.toLowerCase().replace("_", " ")}
+                  </p>
+                  {isDemo && (
+                    <p className="text-xs leading-none text-amber-700">
+                      Read-only demo workspace
+                    </p>
+                  )}
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/settings">
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  Settings
                 </Link>
               </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
-          {notificationCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-destructive-foreground">
-              {notificationCount > 9 ? "9+" : notificationCount}
-            </span>
-          )}
-        </Button>
-
-        {/* User Menu */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-              <Avatar className="h-9 w-9">
-                <AvatarImage src={user.avatar || undefined} alt={user.name || ""} />
-                <AvatarFallback className="bg-hvac-100 text-hvac-700">
-                  {getInitials(user.name)}
-                </AvatarFallback>
-              </Avatar>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align="end" forceMount>
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{user.name}</p>
-                <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                <p className="text-xs leading-none text-muted-foreground capitalize">
-                  {user.role.toLowerCase().replace("_", " ")}
-                </p>
-                {isDemo && (
-                  <p className="text-xs leading-none text-amber-700">
-                    Read-only demo workspace
-                  </p>
-                )}
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/settings">
-                <UserIcon className="mr-2 h-4 w-4" />
-                Settings
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings/users">Team</Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-              <LogOut className="mr-2 h-4 w-4" />
-              Sign out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuItem asChild>
+                <Link href="/settings/users">Team</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );

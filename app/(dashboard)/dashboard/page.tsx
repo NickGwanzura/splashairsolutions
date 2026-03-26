@@ -3,23 +3,30 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
-  DollarSign,
-  Briefcase,
-  Clock,
-  TrendingUp,
-  TrendingDown,
+  Button as CarbonButton,
+  Column,
+  Grid,
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Tabs,
+  Tag,
+  Tile,
+} from "@carbon/react";
+import {
   ArrowRight,
-  Plus,
-} from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils";
-import type { DashboardMetrics, Job, Invoice } from "@/types";
-import { JobStatus, Priority, InvoiceStatus } from "@prisma/client";
+  CurrencyDollar,
+  Add,
+  ChartLine,
+  CheckmarkOutline,
+  Pending,
+  Time,
+} from "@carbon/icons-react";
+import { TrendingUp, TrendingDown } from "lucide-react";
+import { formatCurrency, formatDate } from "@/lib/utils";
+import type { DashboardMetrics } from "@/types";
 
-// Mock data for initial UI
 const mockMetrics: DashboardMetrics = {
   totalRevenue: 125430,
   revenueChange: 12.5,
@@ -31,316 +38,349 @@ const mockMetrics: DashboardMetrics = {
   technicianUtilization: 78,
 };
 
-const mockRecentJobs: any[] = [
+const mockRecentJobs = [
   {
     id: "1",
     jobNumber: "JOB-2024-0048",
     title: "AC Installation - Residential",
     status: "IN_PROGRESS",
-    type: "INSTALLATION",
     priority: "NORMAL",
-    customerId: "c1",
-    propertyId: "p1",
-    organizationId: "org1",
     scheduledDate: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    createdById: "u1",
   },
   {
     id: "2",
     jobNumber: "JOB-2024-0047",
     title: "Emergency Repair - No Cooling",
     status: "ASSIGNED",
-    type: "REPAIR",
     priority: "URGENT",
-    customerId: "c2",
-    propertyId: "p2",
-    organizationId: "org1",
     scheduledDate: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    createdById: "u1",
   },
   {
     id: "3",
     jobNumber: "JOB-2024-0046",
     title: "Annual Maintenance Contract",
     status: "SCHEDULED",
-    type: "MAINTENANCE",
     priority: "NORMAL",
-    customerId: "c3",
-    propertyId: "p3",
-    organizationId: "org1",
     scheduledDate: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    createdById: "u1",
   },
 ];
 
-const mockPendingInvoices: any[] = [
+const mockPendingInvoices = [
   {
     id: "1",
     invoiceNumber: "INV-2024-0021",
     status: "SENT",
     total: "3250.00",
-    customerId: "c1",
-    organizationId: "org1",
-    issueDate: new Date(),
     dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    amountPaid: "0",
-    balanceDue: "3250.00",
-    subtotal: "3000.00",
-    taxAmount: "250.00",
-    taxRate: "8.33",
-    discountAmount: "0",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    createdById: "u1",
-    lineItems: [],
   },
 ];
+
+type CarbonTagType = "blue" | "cool-gray" | "green" | "red" | "teal" | "warm-gray";
+
+function getStatusTagType(status: string): CarbonTagType {
+  switch (status) {
+    case "IN_PROGRESS":
+      return "blue";
+    case "ASSIGNED":
+      return "teal";
+    case "SCHEDULED":
+    case "SENT":
+      return "cool-gray";
+    case "COMPLETED":
+      return "green";
+    default:
+      return "warm-gray";
+  }
+}
+
+function getPriorityTagType(priority: string): CarbonTagType {
+  switch (priority) {
+    case "URGENT":
+      return "red";
+    case "HIGH":
+      return "blue";
+    default:
+      return "warm-gray";
+  }
+}
+
+function MetricTile({
+  title,
+  value,
+  change,
+  changeLabel,
+  icon: Icon,
+}: {
+  title: string;
+  value: string;
+  change?: number;
+  changeLabel?: string;
+  icon: React.ElementType;
+}) {
+  return (
+    <Tile className="flex h-full flex-col justify-between border-t-4 border-t-[#0f62fe] !bg-white !p-6 shadow-none">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            {title}
+          </p>
+          <p className="mt-3 text-4xl font-semibold tracking-[-0.03em] text-foreground">
+            {value}
+          </p>
+        </div>
+        <div className="flex h-12 w-12 items-center justify-center bg-[#edf5ff] text-[#0f62fe]">
+          <Icon size={24} />
+        </div>
+      </div>
+      {change !== undefined && (
+        <div className="mt-6 flex items-center gap-2 text-sm">
+          {change >= 0 ? (
+            <TrendingUp className="h-4 w-4 text-[#198038]" />
+          ) : (
+            <TrendingDown className="h-4 w-4 text-[#da1e28]" />
+          )}
+          <span className={change >= 0 ? "text-[#198038]" : "text-[#da1e28]"}>
+            {Math.abs(change)}%
+          </span>
+          <span className="text-muted-foreground">{changeLabel}</span>
+        </div>
+      )}
+    </Tile>
+  );
+}
 
 export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
+    const timeout = window.setTimeout(() => {
       setMetrics(mockMetrics);
       setLoading(false);
     }, 500);
-  }, []);
 
-  const MetricCard = ({
-    title,
-    value,
-    change,
-    changeLabel,
-    icon: Icon,
-  }: {
-    title: string;
-    value: string;
-    change?: number;
-    changeLabel?: string;
-    icon: React.ElementType;
-  }) => (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
-        {change !== undefined && (
-          <div className="flex items-center text-xs">
-            {change >= 0 ? (
-              <TrendingUp className="mr-1 h-3 w-3 text-green-500" />
-            ) : (
-              <TrendingDown className="mr-1 h-3 w-3 text-red-500" />
-            )}
-            <span className={change >= 0 ? "text-green-500" : "text-red-500"}>
-              {Math.abs(change)}%
-            </span>
-            <span className="text-muted-foreground ml-1">{changeLabel}</span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
+    return () => window.clearTimeout(timeout);
+  }, []);
 
   if (loading || !metrics) {
     return (
-      <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} className="h-28 animate-pulse" />
-          ))}
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          {[...Array(2)].map((_, i) => (
-            <Card key={i} className="h-96 animate-pulse" />
-          ))}
-        </div>
-      </div>
+      <Grid fullWidth condensed className="gap-y-4">
+        {[0, 1, 2, 3].map((item) => (
+          <Column key={item} sm={4} md={4} lg={4}>
+            <div className="h-48 animate-pulse bg-white" />
+          </Column>
+        ))}
+        <Column sm={4} md={8} lg={16}>
+          <div className="h-[28rem] animate-pulse bg-white" />
+        </Column>
+      </Grid>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back! Here&apos;s what&apos;s happening today.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button asChild>
-            <Link href="/jobs/new">
-              <Plus className="mr-2 h-4 w-4" />
-              New Job
-            </Link>
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-8">
+      <Grid fullWidth condensed className="items-end gap-y-6">
+        <Column sm={4} md={5} lg={10}>
+          <div className="space-y-3">
+            <p className="text-sm uppercase tracking-[0.18em] text-muted-foreground">
+              Service operations
+            </p>
+            <h1 className="text-5xl font-semibold tracking-[-0.04em] text-foreground">
+              Dashboard
+            </h1>
+            <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+              A Carbon-aligned operations overview for dispatch, service throughput,
+              invoice flow, and technician momentum.
+            </p>
+          </div>
+        </Column>
+        <Column sm={4} md={3} lg={6} className="flex justify-start lg:justify-end">
+          <CarbonButton as={Link} href="/jobs/new" renderIcon={Add} size="lg">
+            Create work order
+          </CarbonButton>
+        </Column>
+      </Grid>
 
-      {/* Metrics Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Total Revenue"
-          value={formatCurrency(metrics.totalRevenue)}
-          change={metrics.revenueChange}
-          changeLabel="vs last month"
-          icon={DollarSign}
-        />
-        <MetricCard
-          title="Jobs Completed"
-          value={metrics.jobsCompleted.toString()}
-          change={metrics.jobsChange}
-          changeLabel="vs last month"
-          icon={Briefcase}
-        />
-        <MetricCard
-          title="Active Jobs"
-          value={metrics.activeJobs.toString()}
-          icon={Clock}
-        />
-        <MetricCard
-          title="Pending Invoices"
-          value={metrics.invoicesPending.toString()}
-          icon={Clock}
-        />
-      </div>
+      <Grid fullWidth condensed className="gap-y-4">
+        <Column sm={4} md={4} lg={4}>
+          <MetricTile
+            title="Total Revenue"
+            value={formatCurrency(metrics.totalRevenue)}
+            change={metrics.revenueChange}
+            changeLabel="vs last month"
+            icon={CurrencyDollar}
+          />
+        </Column>
+        <Column sm={4} md={4} lg={4}>
+          <MetricTile
+            title="Jobs Completed"
+            value={metrics.jobsCompleted.toString()}
+            change={metrics.jobsChange}
+            changeLabel="vs last month"
+            icon={CheckmarkOutline}
+          />
+        </Column>
+        <Column sm={4} md={4} lg={4}>
+          <MetricTile
+            title="Active Jobs"
+            value={metrics.activeJobs.toString()}
+            icon={Time}
+          />
+        </Column>
+        <Column sm={4} md={4} lg={4}>
+          <MetricTile
+            title="Pending Invoices"
+            value={metrics.invoicesPending.toString()}
+            icon={Pending}
+          />
+        </Column>
+      </Grid>
 
-      {/* Main Content */}
-      <Tabs defaultValue="jobs" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="jobs">Active Jobs</TabsTrigger>
-          <TabsTrigger value="invoices">Pending Invoices</TabsTrigger>
-          <TabsTrigger value="technicians">Technicians</TabsTrigger>
-        </TabsList>
+      <Grid fullWidth condensed className="gap-y-4">
+        <Column sm={4} md={8} lg={12}>
+          <Tile className="!bg-white !p-0 shadow-none">
+            <div className="border-b border-border px-6 py-5">
+              <p className="text-sm uppercase tracking-[0.16em] text-muted-foreground">
+                Control center
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">
+                Work in motion
+              </h2>
+            </div>
 
-        <TabsContent value="jobs" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Jobs</CardTitle>
-              <CardDescription>Latest jobs and their status</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {mockRecentJobs.map((job) => (
-                  <div
-                    key={job.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Link
+            <Tabs defaultSelectedIndex={0}>
+              <TabList aria-label="Dashboard views" contained>
+                <Tab>Active jobs</Tab>
+                <Tab>Pending invoices</Tab>
+                <Tab>Technicians</Tab>
+              </TabList>
+              <TabPanels>
+                <TabPanel>
+                  <div className="divide-y divide-border">
+                    {mockRecentJobs.map((job) => (
+                      <div
+                        key={job.id}
+                        className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Link
+                              href={`/jobs/${job.id}`}
+                              className="text-lg font-semibold tracking-[-0.02em] text-foreground transition-colors hover:text-primary"
+                            >
+                              {job.jobNumber}
+                            </Link>
+                            <Tag type={getStatusTagType(job.status)} size="sm">
+                              {job.status.replace("_", " ")}
+                            </Tag>
+                            <Tag type={getPriorityTagType(job.priority)} size="sm">
+                              {job.priority}
+                            </Tag>
+                          </div>
+                          <p className="text-sm text-foreground">{job.title}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Scheduled for {formatDate(job.scheduledDate)}
+                          </p>
+                        </div>
+                        <CarbonButton
+                          as={Link}
                           href={`/jobs/${job.id}`}
-                          className="font-medium hover:underline"
+                          kind="ghost"
+                          renderIcon={ArrowRight}
+                          iconDescription="Open job"
                         >
-                          {job.jobNumber}
-                        </Link>
-                        <Badge
-                          variant="outline"
-                          className={getStatusColor(job.status)}
-                        >
-                          {job.status.replace("_", " ")}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={getStatusColor(job.priority)}
-                        >
-                          {job.priority}
-                        </Badge>
+                          View job
+                        </CarbonButton>
                       </div>
-                      <p className="text-sm text-muted-foreground">{job.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Scheduled: {formatDate(job.scheduledDate)}
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="icon" asChild>
-                      <Link href={`/jobs/${job.id}`}>
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </Button>
+                    ))}
                   </div>
-                ))}
-              </div>
-              <div className="mt-4 flex justify-center">
-                <Button variant="outline" asChild>
-                  <Link href="/jobs">View All Jobs</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                  <div className="border-t border-border px-6 py-5">
+                    <CarbonButton as={Link} href="/jobs" kind="tertiary" renderIcon={ChartLine}>
+                      View all jobs
+                    </CarbonButton>
+                  </div>
+                </TabPanel>
 
-        <TabsContent value="invoices" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Pending Invoices</CardTitle>
-              <CardDescription>Invoices awaiting payment</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {mockPendingInvoices.map((invoice) => (
-                  <div
-                    key={invoice.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Link
+                <TabPanel>
+                  <div className="divide-y divide-border">
+                    {mockPendingInvoices.map((invoice) => (
+                      <div
+                        key={invoice.id}
+                        className="flex flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Link
+                              href={`/invoices/${invoice.id}`}
+                              className="text-lg font-semibold tracking-[-0.02em] text-foreground transition-colors hover:text-primary"
+                            >
+                              {invoice.invoiceNumber}
+                            </Link>
+                            <Tag type={getStatusTagType(invoice.status)} size="sm">
+                              {invoice.status}
+                            </Tag>
+                          </div>
+                          <p className="text-3xl font-semibold tracking-[-0.03em]">
+                            {formatCurrency(invoice.total)}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Due by {formatDate(invoice.dueDate)}
+                          </p>
+                        </div>
+                        <CarbonButton
+                          as={Link}
                           href={`/invoices/${invoice.id}`}
-                          className="font-medium hover:underline"
+                          kind="ghost"
+                          renderIcon={ArrowRight}
+                          iconDescription="Open invoice"
                         >
-                          {invoice.invoiceNumber}
-                        </Link>
-                        <Badge
-                          variant="outline"
-                          className={getStatusColor(invoice.status)}
-                        >
-                          {invoice.status}
-                        </Badge>
+                          Review invoice
+                        </CarbonButton>
                       </div>
-                      <p className="text-2xl font-bold">
-                        {formatCurrency(invoice.total)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Due: {formatDate(invoice.dueDate)}
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="icon" asChild>
-                      <Link href={`/invoices/${invoice.id}`}>
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </Button>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                </TabPanel>
 
-        <TabsContent value="technicians" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Technician Status</CardTitle>
-              <CardDescription>Current technician availability</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                Technician tracking coming soon
+                <TabPanel>
+                  <div className="px-6 py-10 text-sm leading-7 text-muted-foreground">
+                    Technician presence, dispatch utilization, and route readiness are
+                    the next Carbon module to wire in here.
+                  </div>
+                </TabPanel>
+              </TabPanels>
+            </Tabs>
+          </Tile>
+        </Column>
+
+        <Column sm={4} md={8} lg={4}>
+          <Tile className="flex h-full flex-col !bg-white !p-6 shadow-none">
+            <p className="text-sm uppercase tracking-[0.16em] text-muted-foreground">
+              Planning signal
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">
+              Revenue outlook
+            </h2>
+            <div className="mt-8 space-y-6">
+              <div>
+                <p className="text-sm text-muted-foreground">Average job value</p>
+                <p className="mt-2 text-4xl font-semibold tracking-[-0.03em]">
+                  {formatCurrency(metrics.averageJobValue)}
+                </p>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              <div>
+                <p className="text-sm text-muted-foreground">Technician utilization</p>
+                <p className="mt-2 text-4xl font-semibold tracking-[-0.03em]">
+                  {metrics.technicianUtilization}%
+                </p>
+              </div>
+              <div className="border-t border-border pt-6 text-sm leading-7 text-muted-foreground">
+                Carbon’s structured spacing makes the high-priority numbers immediate,
+                while the supporting context stays readable and calm.
+              </div>
+            </div>
+          </Tile>
+        </Column>
+      </Grid>
     </div>
   );
 }

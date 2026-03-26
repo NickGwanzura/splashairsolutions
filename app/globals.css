@@ -4,56 +4,56 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 0 0% 96%;
+    --foreground: 210 10% 14%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 210 10% 14%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 201 96% 32%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 201 96% 32%;
-    --radius: 0.5rem;
-    --success: 142 76% 36%;
-    --success-foreground: 210 40% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 222.2 47.4% 11.2%;
+    --popover-foreground: 210 10% 14%;
+    --primary: 218 99% 53%;
+    --primary-foreground: 210 100% 99%;
+    --secondary: 0 0% 88%;
+    --secondary-foreground: 210 10% 14%;
+    --muted: 0 0% 88%;
+    --muted-foreground: 0 0% 32%;
+    --accent: 0 0% 88%;
+    --accent-foreground: 210 10% 14%;
+    --destructive: 356 76% 49%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 0 0% 78%;
+    --input: 0 0% 78%;
+    --ring: 218 99% 53%;
+    --radius: 0rem;
+    --success: 147 63% 39%;
+    --success-foreground: 0 0% 100%;
+    --warning: 47 89% 53%;
+    --warning-foreground: 210 10% 14%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 201 96% 32%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 201 96% 32%;
-    --success: 142 76% 36%;
-    --success-foreground: 210 40% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 222.2 47.4% 11.2%;
+    --background: 0 0% 10%;
+    --foreground: 0 0% 96%;
+    --card: 0 0% 16%;
+    --card-foreground: 0 0% 96%;
+    --popover: 0 0% 16%;
+    --popover-foreground: 0 0% 96%;
+    --primary: 209 100% 66%;
+    --primary-foreground: 0 0% 10%;
+    --secondary: 0 0% 23%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 0 0% 23%;
+    --muted-foreground: 0 0% 78%;
+    --accent: 0 0% 23%;
+    --accent-foreground: 0 0% 96%;
+    --destructive: 356 100% 77%;
+    --destructive-foreground: 0 0% 10%;
+    --border: 0 0% 35%;
+    --input: 0 0% 35%;
+    --ring: 209 100% 66%;
+    --success: 153 100% 77%;
+    --success-foreground: 0 0% 10%;
+    --warning: 47 89% 53%;
+    --warning-foreground: 0 0% 10%;
   }
 }
 
@@ -61,8 +61,19 @@
   * {
     @apply border-border;
   }
+  html {
+    background: #f4f4f4;
+  }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-plex-sans), "IBM Plex Sans", system-ui, sans-serif;
+    min-height: 100vh;
+  }
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--font-plex-mono), "IBM Plex Mono", ui-monospace, monospace;
   }
 }
 
@@ -105,6 +116,29 @@
 
 .animate-pulse-ring {
   animation: pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.carbon-header-search .cds--search-input,
+.carbon-header-search .cds--search-close,
+.carbon-header-search .cds--search-magnifier-icon {
+  background: #262626;
+  color: #f4f4f4;
+}
+
+.carbon-header-search .cds--search-input {
+  border-bottom-color: #6f6f6f;
+}
+
+.carbon-header-search .cds--search-input::placeholder {
+  color: #c6c6c6;
+}
+
+.carbon-header-search .cds--search-close:hover {
+  background: #393939;
+}
+
+.carbon-header-search .cds--search-input:focus {
+  outline-color: #0f62fe;
 }
 
 /* Mapbox custom styles */

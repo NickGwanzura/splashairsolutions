@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth/auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
 import { getUserById } from "@/lib/db/prisma";
-import { DEMO_COOKIE_NAME, demoUser, isDemoCookieValue, isPublicDemoEnabled } from "@/lib/demo";
+import { DEMO_COOKIE_NAME, getDemoRoleFromCookie, getDemoUser, isPublicDemoEnabled } from "@/lib/demo";
 import type { Session } from "next-auth";
 import type { User } from "@/types";
 
@@ -35,15 +35,16 @@ export default async function DashboardLayout({
 }) {
   const session = await auth();
   const cookieStore = await cookies();
-  const isDemo =
-    isPublicDemoEnabled() &&
-    isDemoCookieValue(cookieStore.get(DEMO_COOKIE_NAME)?.value);
+  const demoRole = isPublicDemoEnabled()
+    ? getDemoRoleFromCookie(cookieStore.get(DEMO_COOKIE_NAME)?.value)
+    : null;
+  const isDemo = Boolean(demoRole);
 
   if (!session?.user?.id && !isDemo) {
     redirect("/login");
   }
 
-  let user: User | null = isDemo ? demoUser : null;
+  let user: User | null = demoRole ? getDemoUser(demoRole) : null;
 
   if (session?.user?.id) {
     try {
@@ -62,19 +63,21 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen bg-background">
-      <div className="hidden lg:block">
-        <Sidebar />
+    <div className="flex min-h-screen bg-background text-foreground">
+      <div className="hidden shrink-0 lg:block">
+        <Sidebar role={user.role} />
       </div>
-      <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col overflow-hidden">
         <Header user={user} notificationCount={3} isDemo={isDemo && !session?.user?.id} />
         {isDemo && !session?.user?.id && (
-          <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:px-6 lg:px-8">
+          <div className="border-b border-[#f1c21b] bg-[#fcf4d6] px-4 py-3 text-sm text-[#5e4200] sm:px-6 lg:px-8">
             Demo mode is active. You can explore every dashboard, but account-changing actions stay read-only.
           </div>
         )}
-        <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
-          {children}
+        <main className="flex-1 overflow-auto bg-[linear-gradient(180deg,#ffffff_0%,#f4f4f4_16rem)]">
+          <div className="mx-auto w-full max-w-[1600px] px-4 pb-10 pt-6 sm:px-6 lg:px-8">
+            {children}
+          </div>
         </main>
       </div>
     </div>

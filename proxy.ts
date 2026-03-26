@@ -1,13 +1,14 @@
 import { auth } from "@/lib/auth/auth";
-import { DEMO_COOKIE_NAME, isDemoCookieValue, isPublicDemoEnabled } from "@/lib/demo";
+import { DEMO_COOKIE_NAME, getDemoRoleFromCookie, isPublicDemoEnabled } from "@/lib/demo";
 import { NextResponse } from "next/server";
 
 export default auth((req) => {
   const { nextUrl } = req;
   const isLoggedIn = !!req.auth;
-  const isDemo =
-    isPublicDemoEnabled() &&
-    isDemoCookieValue(req.cookies.get(DEMO_COOKIE_NAME)?.value);
+  const demoRole = isPublicDemoEnabled()
+    ? getDemoRoleFromCookie(req.cookies.get(DEMO_COOKIE_NAME)?.value)
+    : null;
+  const isDemo = Boolean(demoRole);
   const user = req.auth?.user;
 
   const isApiAuthRoute = nextUrl.pathname.startsWith("/api/auth");
@@ -30,20 +31,18 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  if (isDemo && !isApiRoute) {
-    return NextResponse.next();
-  }
-
   if (!isLoggedIn && !isPublicRoute) {
     return NextResponse.redirect(new URL("/login", nextUrl));
   }
 
-  if (isLoggedIn && user && !isApiRoute) {
+  const effectiveRole = user?.role ?? demoRole;
+
+  if (effectiveRole && !isApiRoute) {
     const pathname = nextUrl.pathname;
-    const role = user.role;
+    const role = effectiveRole;
 
     if (role === "TECHNICIAN") {
-      const allowedRoutes = ["/jobs", "/schedule", "/profile"];
+      const allowedRoutes = ["/jobs", "/calendar", "/profile"];
       const isAllowed = allowedRoutes.some((route) => pathname.startsWith(route));
 
       if (!isAllowed && pathname !== "/dashboard") {

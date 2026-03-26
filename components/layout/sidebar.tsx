@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { UserRole } from "@prisma/client";
+import type { ComponentType } from "react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   LayoutDashboard,
@@ -24,52 +25,74 @@ interface SidebarProps {
   className?: string;
   collapsed?: boolean;
   onToggle?: () => void;
+  role?: UserRole;
 }
 
-const navigation = [
+interface NavigationItem {
+  name: string;
+  href: string;
+  icon: ComponentType<{ className?: string }>;
+  roles?: UserRole[];
+}
+
+const navigation: NavigationItem[] = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Customers", href: "/customers", icon: Users },
-  { name: "Jobs", href: "/jobs", icon: Briefcase },
-  { name: "Dispatch Board", href: "/dispatch", icon: Truck },
-  { name: "Calendar", href: "/calendar", icon: CalendarDays },
-  { name: "Estimates", href: "/estimates", icon: Calculator },
-  { name: "Invoices", href: "/invoices", icon: FileText },
-  { name: "Equipment", href: "/equipment", icon: Wrench },
-  { name: "Inventory", href: "/inventory", icon: Package },
-  { name: "Reports", href: "/reports", icon: BarChart3 },
-  { name: "Settings", href: "/settings", icon: Settings },
+  { name: "Customers", href: "/customers", icon: Users, roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.DISPATCHER] },
+  { name: "Jobs", href: "/jobs", icon: Briefcase, roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.DISPATCHER, UserRole.TECHNICIAN] },
+  { name: "Dispatch Board", href: "/dispatch", icon: Truck, roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.DISPATCHER] },
+  { name: "Calendar", href: "/calendar", icon: CalendarDays, roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.DISPATCHER, UserRole.TECHNICIAN] },
+  { name: "Estimates", href: "/estimates", icon: Calculator, roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.ACCOUNTANT] },
+  { name: "Invoices", href: "/invoices", icon: FileText, roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.ACCOUNTANT] },
+  { name: "Equipment", href: "/equipment", icon: Wrench, roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.DISPATCHER] },
+  { name: "Inventory", href: "/inventory", icon: Package, roles: [UserRole.OWNER, UserRole.ADMIN] },
+  { name: "Reports", href: "/reports", icon: BarChart3, roles: [UserRole.OWNER, UserRole.ADMIN, UserRole.ACCOUNTANT] },
+  { name: "Settings", href: "/settings", icon: Settings, roles: [UserRole.OWNER, UserRole.ADMIN] },
 ];
 
-export function Sidebar({ className, collapsed = false, onToggle }: SidebarProps) {
+export function Sidebar({ className, collapsed = false, onToggle, role }: SidebarProps) {
   const pathname = usePathname();
+  const visibleNavigation = navigation.filter((item) => !item.roles || !role || item.roles.includes(role));
 
   return (
-    <div
+    <aside
       className={cn(
-        "relative flex flex-col h-full border-r bg-card transition-all duration-300",
+        "relative flex h-full flex-col border-r border-[#393939] bg-[#161616] text-[#f4f4f4] transition-all duration-200",
         collapsed ? "w-16" : "w-64",
         className
       )}
     >
-      <div className="flex h-16 items-center justify-between border-b px-4">
-        {!collapsed && (
-          <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl">
-            <div className="w-8 h-8 rounded-lg bg-hvac-600 flex items-center justify-center">
-              <Wrench className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-hvac-700">HVACOps</span>
-          </Link>
-        )}
-        {collapsed && (
-          <div className="w-8 h-8 rounded-lg bg-hvac-600 flex items-center justify-center mx-auto">
-            <Wrench className="w-5 h-5 text-white" />
+      <div className="border-b border-[#393939] px-4 py-4">
+        <Link
+          href="/dashboard"
+          className={cn("flex items-center gap-3", collapsed && "justify-center")}
+        >
+          <div className="flex h-10 w-10 items-center justify-center border border-[#0f62fe] bg-[#0f62fe] text-white">
+            <Wrench className="h-5 w-5" />
           </div>
-        )}
+          {!collapsed && (
+            <div className="min-w-0">
+              <span className="block text-[11px] uppercase tracking-[0.24em] text-[#8d8d8d]">
+                Field Service
+              </span>
+              <span className="block truncate text-lg font-semibold text-white">
+                HVACOps
+              </span>
+            </div>
+          )}
+        </Link>
       </div>
 
-      <ScrollArea className="flex-1 py-4">
+      {!collapsed && (
+        <div className="px-4 pt-4">
+          <p className="text-[11px] uppercase tracking-[0.24em] text-[#8d8d8d]">
+            Workspace
+          </p>
+        </div>
+      )}
+
+      <ScrollArea className="flex-1 py-3">
         <nav className="space-y-1 px-2">
-          {navigation.map((item) => {
+          {visibleNavigation.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
 
@@ -77,39 +100,39 @@ export function Sidebar({ className, collapsed = false, onToggle }: SidebarProps
               <Link
                 key={item.name}
                 href={item.href}
+                title={collapsed ? item.name : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "group flex min-h-12 items-center gap-3 px-3 text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-hvac-50 text-hvac-700"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    ? "bg-[#262626] text-white shadow-[inset_3px_0_0_0_#0f62fe]"
+                    : "text-[#c6c6c6] hover:bg-[#262626] hover:text-white",
                   collapsed && "justify-center px-2"
                 )}
-                title={collapsed ? item.name : undefined}
               >
-                <Icon className={cn("h-5 w-5 flex-shrink-0", isActive && "text-hvac-600")} />
-                {!collapsed && <span>{item.name}</span>}
+                <Icon className={cn("h-5 w-5 shrink-0", isActive && "text-[#78a9ff]")} />
+                {!collapsed && <span className="truncate">{item.name}</span>}
               </Link>
             );
           })}
         </nav>
       </ScrollArea>
 
-      <div className="border-t p-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn(
-            "w-full flex items-center gap-2",
-            collapsed && "justify-center px-2"
-          )}
-          onClick={onToggle}
-        >
-          <ChevronLeft
-            className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")}
-          />
-          {!collapsed && <span>Collapse</span>}
-        </Button>
-      </div>
-    </div>
+      {onToggle && (
+        <div className="border-t border-[#393939] p-2">
+          <button
+            type="button"
+            onClick={onToggle}
+            className={cn(
+              "flex min-h-12 w-full items-center gap-3 px-3 text-sm font-medium text-[#c6c6c6] transition-colors hover:bg-[#262626] hover:text-white",
+              collapsed && "justify-center px-2"
+            )}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            <ChevronLeft className={cn("h-4 w-4 transition-transform", collapsed && "rotate-180")} />
+            {!collapsed && <span>Collapse navigation</span>}
+          </button>
+        </div>
+      )}
+    </aside>
   );
 }
