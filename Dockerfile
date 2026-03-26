@@ -8,7 +8,12 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production --silent
+
+# Copy prisma schema for postinstall script
+COPY prisma ./prisma/
+
+# Install dependencies (skip postinstall for now)
+RUN npm ci --silent --ignore-scripts
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
@@ -17,6 +22,7 @@ WORKDIR /app
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/prisma ./prisma
 COPY . .
 
 # Set environment variables for build
