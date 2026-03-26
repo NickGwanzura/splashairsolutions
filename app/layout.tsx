@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "HVACOps - Field Service Management",
-  description: "Professional HVAC field service management platform for scheduling, dispatching, invoicing, and more.",
+  description: "Professional HVAC field service management platform",
 };
 
 export default function RootLayout({
@@ -20,23 +20,14 @@ export default function RootLayout({
         <link
           rel="stylesheet"
           href="https://1.www.s81c.com/common/carbon/plex/sans.css"
-          crossOrigin="anonymous"
-        />
-        <link
-          rel="stylesheet"
-          href="https://1.www.s81c.com/common/carbon/plex/mono.css"
-          crossOrigin="anonymous"
         />
         <style>{`
           :root {
-            --font-plex-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            --font-plex-mono: 'IBM Plex Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+            --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-mono: 'IBM Plex Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
           }
           body {
-            font-family: var(--font-plex-sans);
-          }
-          code, pre {
-            font-family: var(--font-plex-mono);
+            font-family: var(--font-sans);
           }
         `}</style>
       </head>
