@@ -24,7 +24,7 @@ export default function RootLayout({
         <style>{`
           :root {
             --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            --font-mono: 'IBM Plex Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+            --font-mono: 'Menlo', 'Monaco', 'Consolas', monospace;
           }
           body {
             font-family: var(--font-sans);
