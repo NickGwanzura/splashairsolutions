@@ -27,6 +27,9 @@ COPY --from=deps /app/prisma ./prisma
 # Copy all source files
 COPY . .
 
+# Ensure public folder exists (create empty if not present)
+RUN mkdir -p public
+
 # Set environment variables for build
 # IMPORTANT: Build must NOT have NODE_ENV=production
 # or next build will fail
@@ -60,8 +63,8 @@ ENV HOSTNAME=0.0.0.0
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
-# Copy public folder (static assets)
-COPY --from=builder /app/public ./public
+# Copy public folder if it exists (using wildcard to avoid errors)
+COPY --from=builder /app/public* ./public
 
 # Copy Prisma files
 COPY --from=builder /app/prisma ./prisma
