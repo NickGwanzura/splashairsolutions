@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Turbopack configuration (required for Next.js 16+)
-  turbopack: {},
-  
   // Standalone output for Docker deployment
   output: 'standalone',
   
@@ -12,6 +9,7 @@ const nextConfig = {
   
   // Image optimization
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'https',

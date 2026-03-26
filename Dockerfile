@@ -1,26 +1,26 @@
-# Multi-stage Dockerfile for HVACOps Next.js Application
+# Production Dockerfile for HVACOps Next.js Application
 # Optimized for Dokploy deployment
 
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
 RUN apk add --no-cache libc6-compat openssl
+
 WORKDIR /app
 
 # Copy package files
 COPY package.json package-lock.json* ./
-
-# Copy prisma schema for postinstall script
 COPY prisma ./prisma/
 
-# Install dependencies (skip postinstall for now)
-RUN npm ci --silent --ignore-scripts
+# Install ALL dependencies (including devDependencies for build)
+# NODE_ENV is NOT set to production so devDependencies are installed
+RUN npm ci --silent
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
-RUN apk add --no-cache libc6-compat openssl
+
 WORKDIR /app
 
-# Copy dependencies from deps stage
+# Copy node_modules from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/prisma ./prisma
 
@@ -28,8 +28,9 @@ COPY --from=deps /app/prisma ./prisma
 COPY . .
 
 # Set environment variables for build
+# IMPORTANT: Build must NOT have NODE_ENV=production
+# or next build will fail
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
 
 # Generate Prisma client
 RUN npx prisma generate
@@ -37,36 +38,37 @@ RUN npx prisma generate
 # Build the application
 RUN npm run build
 
-# Stage 3: Runner
+# Stage 3: Runner (Production)
 FROM node:20-alpine AS runner
+
 WORKDIR /app
 
 # Install dumb-init for proper signal handling
 RUN apk add --no-cache dumb-init
 
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
-# Set environment variables
-ENV NEXT_TELEMETRY_DISABLED=1
+# Set production environment
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
+ENV HOSTNAME=0.0.0.0
 
-# Copy necessary files
+# Copy package files
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
-# Copy public folder if it exists (handle empty case)
-COPY --from=builder /app/public* ./public
+# Copy public folder (static assets)
+COPY --from=builder /app/public ./public
 
 # Copy Prisma files
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Copy built application
+# Copy built application from standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
@@ -77,9 +79,12 @@ USER nextjs
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))" || exit 1
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
 
 # Start the application
-ENTRYPOINT ["dumb-init", "--"]
+# The standalone output has server.js
 CMD ["node", "server.js"]
