@@ -9,6 +9,16 @@ export const metadata: Metadata = {
   description: "Professional HVAC field service management platform",
 };
 
+const fontStyles = `
+:root {
+  --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Menlo', 'Monaco', 'Consolas', monospace;
+}
+body {
+  font-family: var(--font-sans);
+}
+`;
+
 export default function RootLayout({
   children,
 }: {
@@ -21,15 +31,7 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://1.www.s81c.com/common/carbon/plex/sans.css"
         />
-        <style>{`
-          :root {
-            --font-sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            --font-mono: 'Menlo', 'Monaco', 'Consolas', monospace;
-          }
-          body {
-            font-family: var(--font-sans);
-          }
-        `}</style>
+        <style dangerouslySetInnerHTML={{ __html: fontStyles }} />
       </head>
       <body>
         <Theme theme="g10" className="min-h-screen bg-background text-foreground">
