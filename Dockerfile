@@ -51,8 +51,8 @@ ENV HOSTNAME=0.0.0.0
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/next.config.mjs ./next.config.mjs
 
-# Copy public folder (with fallback)
-COPY --from=builder /app/public ./public 2>/dev/null || true
+# Copy public folder
+COPY --from=builder /app/public ./public
 
 # Copy Prisma files
 COPY --from=builder /app/prisma ./prisma
