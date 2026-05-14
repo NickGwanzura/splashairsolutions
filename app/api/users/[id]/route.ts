@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db/prisma";
 import { UserRole, UserStatus } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+
 // PATCH /api/users/[id] - Update user
 export async function PATCH(
   request: NextRequest,

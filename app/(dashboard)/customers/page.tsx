@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Filter, MoreHorizontal, Phone, Mail, MapPin } from "lucide-react";
+import { Mail, MoreHorizontal, Phone as PhoneIcon, Plus, Search } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,107 +23,96 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getInitials, formatPhoneNumber, getStatusColor } from "@/lib/utils";
-import type { Customer } from "@/types";
-import { CustomerType, CustomerStatus } from "@prisma/client";
+import type { Phone } from "@/types";
+import { CustomerStatus, CustomerType } from "@prisma/client";
 
-// Mock customers data
-const mockCustomers: any[] = [
-  {
-    id: "1",
-    firstName: "John",
-    lastName: "Smith",
-    email: "john.smith@email.com",
-    phones: [{ number: "555-0123", type: "MOBILE", isPrimary: true }],
-    type: "RESIDENTIAL",
-    status: "ACTIVE",
-    source: "Google",
-    paymentTerms: "NET_30",
-    taxExempt: false,
-    taxId: null,
-    internalNotes: null,
-    organizationId: "org1",
-    createdAt: new Date("2024-01-15"),
-    updatedAt: new Date("2024-01-15"),
-    createdById: "u1",
-  },
-  {
-    id: "2",
-    firstName: "Sarah",
-    lastName: "Johnson",
-    email: "sarah.j@company.com",
-    phones: [{ number: "555-0234", type: "WORK", isPrimary: true }],
-    type: "COMMERCIAL",
-    status: "ACTIVE",
-    source: "Referral",
-    paymentTerms: "NET_15",
-    taxExempt: false,
-    taxId: null,
-    internalNotes: null,
-    organizationId: "org1",
-    createdAt: new Date("2024-02-01"),
-    updatedAt: new Date("2024-02-01"),
-    createdById: "u1",
-  },
-  {
-    id: "3",
-    firstName: "Michael",
-    lastName: "Brown",
-    email: null,
-    phones: [{ number: "555-0345", type: "HOME", isPrimary: true }],
-    type: "RESIDENTIAL",
-    status: "LEAD",
-    source: "Website",
-    paymentTerms: "NET_30",
-    taxExempt: false,
-    taxId: null,
-    internalNotes: null,
-    organizationId: "org1",
-    createdAt: new Date("2024-03-10"),
-    updatedAt: new Date("2024-03-10"),
-    createdById: "u1",
-  },
-  {
-    id: "4",
-    firstName: "Emily",
-    lastName: "Davis",
-    email: "emily.davis@email.com",
-    phones: [{ number: "555-0456", type: "MOBILE", isPrimary: true }],
-    type: "RESIDENTIAL",
-    status: "VIP",
-    source: "Referral",
-    paymentTerms: "DUE_ON_RECEIPT",
-    taxExempt: true,
-    taxId: "TX123456",
-    internalNotes: "VIP customer, priority service",
-    organizationId: "org1",
-    createdAt: new Date("2023-06-20"),
-    updatedAt: new Date("2024-01-05"),
-    createdById: "u1",
-  },
-];
+interface CustomerRow {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  phones: Phone[];
+  type: CustomerType;
+  status: CustomerStatus;
+  createdAt: string;
+  _count?: {
+    jobs: number;
+  };
+}
 
 export default function CustomersPage() {
+  const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<CustomerType | "ALL">("ALL");
   const [statusFilter, setStatusFilter] = useState<CustomerStatus | "ALL">("ALL");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredCustomers = mockCustomers.filter((customer) => {
-    const matchesSearch =
-      !searchQuery ||
-      customer.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.lastName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      customer.phones.some((p: any) => p.number.includes(searchQuery));
+  useEffect(() => {
+    let cancelled = false;
 
-    const matchesType = typeFilter === "ALL" || customer.type === typeFilter;
-    const matchesStatus = statusFilter === "ALL" || customer.status === statusFilter;
+    async function loadCustomers() {
+      setIsLoading(true);
+      setError(null);
 
-    return matchesSearch && matchesType && matchesStatus;
-  });
+      try {
+        const params = new URLSearchParams();
+        params.set("pageSize", "100");
+
+        if (statusFilter !== "ALL") {
+          params.set("status", statusFilter);
+        }
+
+        const response = await fetch(`/api/customers?${params.toString()}`, {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to load customers");
+        }
+
+        const payload = await response.json();
+
+        if (!cancelled) {
+          setCustomers(payload.data ?? []);
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Failed to load customers");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadCustomers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [statusFilter]);
+
+  const filteredCustomers = useMemo(() => {
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+
+    return customers.filter((customer) => {
+      const matchesSearch =
+        !normalizedSearch ||
+        customer.firstName.toLowerCase().includes(normalizedSearch) ||
+        customer.lastName.toLowerCase().includes(normalizedSearch) ||
+        customer.email?.toLowerCase().includes(normalizedSearch) ||
+        customer.phones.some((phone) => phone.number.includes(searchQuery));
+
+      const matchesType = typeFilter === "ALL" || customer.type === typeFilter;
+
+      return matchesSearch && matchesType;
+    });
+  }, [customers, searchQuery, typeFilter]);
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
@@ -139,7 +128,6 @@ export default function CustomersPage() {
         </Button>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Filters</CardTitle>
@@ -152,14 +140,14 @@ export default function CustomersPage() {
                 placeholder="Search customers..."
                 className="pl-9"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(event) => setSearchQuery(event.target.value)}
               />
             </div>
             <div className="flex gap-2">
               <select
                 className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as CustomerType | "ALL")}
+                onChange={(event) => setTypeFilter(event.target.value as CustomerType | "ALL")}
               >
                 <option value="ALL">All Types</option>
                 <option value="RESIDENTIAL">Residential</option>
@@ -170,7 +158,7 @@ export default function CustomersPage() {
               <select
                 className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as CustomerStatus | "ALL")}
+                onChange={(event) => setStatusFilter(event.target.value as CustomerStatus | "ALL")}
               >
                 <option value="ALL">All Statuses</option>
                 <option value="ACTIVE">Active</option>
@@ -183,7 +171,6 @@ export default function CustomersPage() {
         </CardContent>
       </Card>
 
-      {/* Customers Table */}
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -198,9 +185,21 @@ export default function CustomersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredCustomers.length === 0 ? (
+              {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
+                    Loading customers...
+                  </TableCell>
+                </TableRow>
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-8 text-center text-destructive">
+                    {error}
+                  </TableCell>
+                </TableRow>
+              ) : filteredCustomers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No customers found. Try adjusting your filters.
                   </TableCell>
                 </TableRow>
@@ -234,7 +233,7 @@ export default function CustomersPage() {
                       <div className="space-y-1">
                         {customer.phones[0] && (
                           <div className="flex items-center gap-1 text-sm">
-                            <Phone className="h-3 w-3 text-muted-foreground" />
+                            <PhoneIcon className="h-3 w-3 text-muted-foreground" />
                             {formatPhoneNumber(customer.phones[0].number)}
                           </div>
                         )}
@@ -247,15 +246,12 @@ export default function CustomersPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={getStatusColor(customer.status)}
-                      >
+                      <Badge variant="outline" className={getStatusColor(customer.status)}>
                         {customer.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <span className="text-sm">12 jobs</span>
+                      <span className="text-sm">{customer._count?.jobs ?? 0} jobs</span>
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
@@ -269,9 +265,7 @@ export default function CustomersPage() {
                             <Link href={`/customers/${customer.id}`}>View Profile</Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href={`/jobs/new?customerId=${customer.id}`}>
-                              Create Job
-                            </Link>
+                            <Link href={`/jobs/new?customerId=${customer.id}`}>Create Job</Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href={`/estimates/new?customerId=${customer.id}`}>

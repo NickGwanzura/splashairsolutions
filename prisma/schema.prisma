@@ -54,6 +54,8 @@ model Organization {
   estimates    Estimate[]
   equipment    Equipment[]
   inventory    InventoryItem[]
+  gasStock     GasStock[]
+  gasUsage     GasUsage[]
   auditLogs    AuditLog[]
   notifications Notification[]
   invitations  UserInvitation[]
@@ -388,6 +390,7 @@ model Job {
   notes          JobNote[]
   invoice        Invoice?
   partsUsed      PartUsage[]
+  gasUsage       GasUsage[]
   
   @@index([organizationId])
   @@index([customerId])
@@ -679,6 +682,60 @@ model InventoryItem {
   @@index([organizationId])
   @@index([category])
   @@map("inventory_items")
+}
+
+model GasStock {
+  id          String   @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  gasType     String
+  brand       String
+  quantity    Decimal  @db.Decimal(10, 2)
+  remaining   Decimal  @db.Decimal(10, 2)
+  unit        String   @default("kg")
+  supplier    String
+  supplierRef String?
+  addedBy     String?
+  date        DateTime @default(now())
+  notes       String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  usage       GasUsage[]
+
+  @@index([organizationId])
+  @@index([gasType])
+  @@map("gas_stock")
+}
+
+model GasUsage {
+  id          String   @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  stockId     String
+  stock       GasStock @relation(fields: [stockId], references: [id], onDelete: Restrict)
+
+  jobId       String
+  job         Job      @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  gasType      String
+  quantityUsed Decimal  @db.Decimal(10, 2)
+  usedById     String?
+  customerName String
+  purpose      String
+  usedAt       DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([jobId])
+  @@index([stockId])
+  @@index([usedAt])
+  @@map("gas_usage")
 }
 
 model Supplier {

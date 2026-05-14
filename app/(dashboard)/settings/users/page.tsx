@@ -45,59 +45,6 @@ interface User {
   createdAt: Date;
 }
 
-const mockUsers: User[] = [
-  {
-    id: "1",
-    name: "James Wilson",
-    email: "owner@coolairhvac.com",
-    role: "OWNER",
-    status: "ACTIVE",
-    avatar: null,
-    lastLoginAt: new Date(),
-    createdAt: new Date("2024-01-01"),
-  },
-  {
-    id: "2",
-    name: "Lisa Anderson",
-    email: "admin@coolairhvac.com",
-    role: "ADMIN",
-    status: "ACTIVE",
-    avatar: null,
-    lastLoginAt: new Date(),
-    createdAt: new Date("2024-01-01"),
-  },
-  {
-    id: "3",
-    name: "Michael Chen",
-    email: "dispatch@coolairhvac.com",
-    role: "DISPATCHER",
-    status: "ACTIVE",
-    avatar: null,
-    lastLoginAt: new Date(),
-    createdAt: new Date("2024-01-15"),
-  },
-  {
-    id: "4",
-    name: "Sarah Miller",
-    email: "accounting@coolairhvac.com",
-    role: "ACCOUNTANT",
-    status: "ACTIVE",
-    avatar: null,
-    lastLoginAt: new Date(),
-    createdAt: new Date("2024-02-01"),
-  },
-  {
-    id: "5",
-    name: "Mike Johnson",
-    email: "mike.j@coolairhvac.com",
-    role: "TECHNICIAN",
-    status: "ACTIVE",
-    avatar: null,
-    lastLoginAt: new Date(),
-    createdAt: new Date("2024-02-15"),
-  },
-];
-
 const roleLabels: Record<UserRole, string> = {
   OWNER: "Owner",
   ADMIN: "Admin",
@@ -115,28 +62,59 @@ const roleColors: Record<UserRole, string> = {
 };
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<UserRole>("TECHNICIAN");
   const [isInviting, setIsInviting] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/api/demo/session")
-      .then((response) => response.json())
-      .then((data) => {
+    async function loadPageData() {
+      setIsLoadingUsers(true);
+      setUsersError(null);
+
+      try {
+        const demoResponse = await fetch("/api/demo/session", { cache: "no-store" });
+        const demoData = await demoResponse.json();
+        const demoActive = Boolean(demoData.active);
+
         if (!cancelled) {
-          setIsDemoMode(Boolean(data.active));
+          setIsDemoMode(demoActive);
         }
-      })
-      .catch(() => {
+
+        if (demoActive) {
+          return;
+        }
+
+        const usersResponse = await fetch("/api/users", { cache: "no-store" });
+
+        if (!usersResponse.ok) {
+          throw new Error("Failed to load users");
+        }
+
+        const usersData = await usersResponse.json();
+
+        if (!cancelled) {
+          setUsers(usersData);
+        }
+      } catch (error) {
         if (!cancelled) {
           setIsDemoMode(false);
+          setUsersError(error instanceof Error ? error.message : "Failed to load users");
         }
-      });
+      } finally {
+        if (!cancelled) {
+          setIsLoadingUsers(false);
+        }
+      }
+    }
+
+    loadPageData();
 
     return () => {
       cancelled = true;
@@ -329,7 +307,20 @@ export default function UsersPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {users.map((user) => (
+            {isLoadingUsers ? (
+              <div className="rounded-lg border p-6 text-center text-muted-foreground">
+                Loading team members...
+              </div>
+            ) : usersError ? (
+              <div className="rounded-lg border p-6 text-center text-destructive">
+                {usersError}
+              </div>
+            ) : users.length === 0 ? (
+              <div className="rounded-lg border p-6 text-center text-muted-foreground">
+                No team members found.
+              </div>
+            ) : (
+              users.map((user) => (
               <div
                 key={user.id}
                 className="flex items-center justify-between p-4 border rounded-lg"
@@ -409,7 +400,8 @@ export default function UsersPage() {
                   </DropdownMenu>
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </div>
         </CardContent>
       </Card>

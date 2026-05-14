@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db/prisma";
 import { z } from "zod";
 import { JobStatus } from "@prisma/client";
 
+export const dynamic = "force-dynamic";
+
 const createJobSchema = z.object({
   customerId: z.string(),
   propertyId: z.string(),
